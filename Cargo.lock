@@ -1877,6 +1877,7 @@ dependencies = [
  "futures",
  "hex-literal",
  "itertools",
+ "jsonrpc-core",
  "lazy_static",
  "lru",
  "maplit",

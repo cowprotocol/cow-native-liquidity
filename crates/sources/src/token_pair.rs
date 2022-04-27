@@ -123,8 +123,8 @@ mod tests {
         let pair = TokenPair::new(token_a, token_b).unwrap();
 
         let mut iter = (&pair).into_iter();
-        assert_eq!(iter.next(), Some(token_a));
-        assert_eq!(iter.next(), Some(token_b));
+        assert_eq!(iter.next(), Some(&token_a));
+        assert_eq!(iter.next(), Some(&token_b));
         assert_eq!(iter.next(), None);
 
         let mut iter = pair.into_iter();

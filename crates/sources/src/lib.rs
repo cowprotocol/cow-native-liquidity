@@ -18,6 +18,9 @@ pub mod token_pair;
 #[allow(missing_docs)]
 mod transport {
     pub mod test_transport;
+    pub mod transport;
+    pub mod http;
+    pub mod dummy;
 }
 
 use ethcontract::{

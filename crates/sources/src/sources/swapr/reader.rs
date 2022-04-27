@@ -62,7 +62,7 @@ mod tests {
     use super::*;
     use crate::{
         ethcontract_error, recent_block_cache::Block, sources::swapr,
-        transport::create_env_test_transport, Web3,
+        transport::transport::create_env_test_transport, Web3,
     };
     use ethcontract::H160;
     use maplit::hashset;

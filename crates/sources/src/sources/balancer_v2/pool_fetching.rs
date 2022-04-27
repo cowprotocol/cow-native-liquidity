@@ -373,12 +373,11 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn balancer_fetched_pools_match_subgraph() {
-        let transport = transport::create_env_test_transport();
+        let transport = transport::transport::create_env_test_transport();
         let web3 = Web3::new(transport);
         let chain_id = web3.eth().chain_id().await.unwrap().as_u64();
 
         println!("Indexing events for chain {}", chain_id);
-        crate::tracing::initialize_for_tests("warn,sources=debug");
 
         let pool_initializer = EmptyPoolInitializer::for_chain(chain_id);
         let token_infos = TokenInfoFetcher { web3: web3.clone() };
