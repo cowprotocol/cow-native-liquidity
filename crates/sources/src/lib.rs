@@ -13,14 +13,15 @@ pub mod sources;
 pub mod subgraph;
 pub mod token_info;
 pub mod token_pair;
+#[cfg(test)]
+#[allow(missing_docs)]
+pub mod transport;
 
 #[cfg(test)]
 #[allow(missing_docs)]
-mod transport {
+mod test {
     pub mod test_transport;
-    pub mod transport;
-    pub mod http;
-    pub mod dummy;
+    pub mod tokens;
 }
 
 use ethcontract::{

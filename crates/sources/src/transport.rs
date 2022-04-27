@@ -1,7 +1,10 @@
+pub mod dummy;
+pub mod http;
+
 use crate::Web3Transport;
 use reqwest::Client;
 
-use super::http::HttpTransport;
+use self::http::HttpTransport;
 
 /// Convenience method to create a transport from a URL.
 pub fn create_test_transport(url: &str) -> Web3Transport {

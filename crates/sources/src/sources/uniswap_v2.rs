@@ -15,14 +15,14 @@ impl_uniswap_like_liquidity! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::token_pair::TokenPair;
+    use crate::{test, token_pair::TokenPair};
     use ethcontract_mock::Mock;
 
     #[tokio::test]
     async fn test_create2_mainnet() {
         // https://info.uniswap.org/pair/0x3e8468f66d30fc99f745481d4b383f89861702c6
         let (mainnet_pair_provider, _) = get_liquidity_source(&Mock::new(1).web3()).await.unwrap();
-        let mainnet_pair = TokenPair::new(testlib::tokens::GNO, testlib::tokens::WETH).unwrap();
+        let mainnet_pair = TokenPair::new(test::tokens::GNO, test::tokens::WETH).unwrap();
         assert_eq!(
             mainnet_pair_provider.pair_address(&mainnet_pair),
             addr!("3e8468f66d30fc99f745481d4b383f89861702c6")

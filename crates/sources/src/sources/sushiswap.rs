@@ -10,14 +10,14 @@ impl_uniswap_like_liquidity! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::token_pair::TokenPair;
+    use crate::{test, token_pair::TokenPair};
     use ethcontract_mock::Mock;
 
     #[tokio::test]
     async fn test_create2_sushiswap() {
         // https://sushiswap.vision/pair/0x41328fdba556c8c969418ccccb077b7b8d932aa5
         let (mainnet_pair_provider, _) = get_liquidity_source(&Mock::new(1).web3()).await.unwrap();
-        let mainnet_pair = TokenPair::new(testlib::tokens::GNO, testlib::tokens::WETH).unwrap();
+        let mainnet_pair = TokenPair::new(test::tokens::GNO, test::tokens::WETH).unwrap();
         assert_eq!(
             mainnet_pair_provider.pair_address(&mainnet_pair),
             addr!("41328fdba556c8c969418ccccb077b7b8d932aa5")

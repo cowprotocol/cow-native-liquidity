@@ -33,6 +33,8 @@ fn create2_target_address(creator: H160, salt: &[u8; 32], init_code_digest: &[u8
 
 #[cfg(test)]
 mod tests {
+    use crate::test;
+
     use super::*;
     use hex_literal::hex;
 
@@ -45,7 +47,7 @@ mod tests {
                 "96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"
             ),
         };
-        let pair = TokenPair::new(testlib::tokens::GNO, testlib::tokens::WETH).unwrap();
+        let pair = TokenPair::new(test::tokens::GNO, test::tokens::WETH).unwrap();
         assert_eq!(
             provider.pair_address(&pair),
             addr!("3e8468f66d30fc99f745481d4b383f89861702c6")

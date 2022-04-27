@@ -110,7 +110,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transport::test_transport::TestTransport;
+    use crate::test::test_transport::TestTransport;
     use ethcontract::dyns::DynTransport;
     use futures::StreamExt;
     use serde_json::json;
