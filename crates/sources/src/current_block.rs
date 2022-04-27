@@ -110,16 +110,27 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transport::create_test_transport;
+    use crate::transport::test_transport::TestTransport;
+    use ethcontract::dyns::DynTransport;
     use futures::StreamExt;
+    use serde_json::json;
+    use web3::types::U64;
 
-    // cargo test current_block -- --ignored --nocapture
     #[tokio::test]
-    #[ignore]
-    async fn mainnet() {
-        let node = std::env::var("NODE_URL").unwrap();
-        let transport = create_test_transport(&node);
-        let web3 = Web3::new(transport);
+    async fn block_stream_test() {
+        let mut transport = TestTransport::new();
+        let dyn_transport = DynTransport::new(transport.clone());
+
+        for i in 0u64..3u64 {
+            let block = Block {
+                hash: Some(H256::from_low_u64_be(i)),
+                number: Some(U64::from(i)),
+                ..Default::default()
+            };
+            let block = serde_json::to_value(block).unwrap();
+            transport.add_response(block);
+        }
+        let web3 = Web3::new(dyn_transport);
         let receiver = current_block_stream(web3, Duration::from_secs(1))
             .await
             .unwrap();
@@ -128,5 +139,10 @@ mod tests {
             let block = stream.next().await.unwrap();
             println!("new block number {}", block.number.unwrap().as_u64());
         }
+
+        transport.assert_request("eth_getBlockByNumber", &[json!("latest"), json!(false)]);
+        transport.assert_request("eth_getBlockByNumber", &[json!("latest"), json!(false)]);
+        transport.assert_request("eth_getBlockByNumber", &[json!("latest"), json!(false)]);
+        transport.assert_no_more_requests();
     }
 }

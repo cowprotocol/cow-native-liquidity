@@ -14,6 +14,12 @@ pub mod subgraph;
 pub mod token_info;
 pub mod token_pair;
 
+#[cfg(test)]
+#[allow(missing_docs)]
+mod transport {
+    pub mod test_transport;
+}
+
 use ethcontract::{
     batch::CallBatch,
     dyns::{DynTransport, DynWeb3},
