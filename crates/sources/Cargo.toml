@@ -40,5 +40,5 @@ web3 = { version = "0.18", default-features = false }
 [dev-dependencies]
 ethcontract-mock = { version = "0.17.0", default-features = false }
 maplit = "1.0"
-regex = "1.5.4"
+regex = "1.5.5"
 jsonrpc-core = "18.0"
