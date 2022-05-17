@@ -241,12 +241,14 @@ mod tests {
                     PoolData {
                         id: H160::from_str("0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28").unwrap(),
                         token0: Token {
-                            id: H160::from_str("0xbef81556ef066ec840a540595c8d12f516b6378f").unwrap(),
+                            id: H160::from_str("0xbef81556ef066ec840a540595c8d12f516b6378f")
+                                .unwrap(),
                             symbol: "BCZ".to_string(),
                             decimals: 18,
                         },
                         token1: Token {
-                            id: H160::from_str("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").unwrap(),
+                            id: H160::from_str("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")
+                                .unwrap(),
                             symbol: "WETH".to_string(),
                             decimals: 18,
                         },
@@ -258,12 +260,14 @@ mod tests {
                     PoolData {
                         id: H160::from_str("0x0002e63328169d7feea121f1e32e4f620abf0352").unwrap(),
                         token0: Token {
-                            id: H160::from_str("0x0d438f3b5175bebc262bf23753c1e53d03432bde").unwrap(),
+                            id: H160::from_str("0x0d438f3b5175bebc262bf23753c1e53d03432bde")
+                                .unwrap(),
                             symbol: "wNXM".to_string(),
                             decimals: 18,
                         },
                         token1: Token {
-                            id: H160::from_str("0x903bef1736cddf2a537176cf3c64579c3867a881").unwrap(),
+                            id: H160::from_str("0x903bef1736cddf2a537176cf3c64579c3867a881")
+                                .unwrap(),
                             symbol: "ICHI".to_string(),
                             decimals: 9,
                         },
