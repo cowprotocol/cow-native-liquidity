@@ -9,20 +9,16 @@
 //!   from the node
 
 use super::swap::fixed_point::Bfp;
-use crate::{event_handling::MAX_REORG_BLOCK_COUNT, subgraph::SubgraphClient};
+use crate::{
+    event_handling::MAX_REORG_BLOCK_COUNT,
+    subgraph::{ContainsId, SubgraphClient},
+};
 use anyhow::{bail, Result};
 use ethcontract::{H160, H256};
 use reqwest::Client;
 use serde::Deserialize;
-use serde_json::json;
 use serde_with::{serde_as, DisplayFromStr};
 use std::collections::HashMap;
-
-/// The page size when querying pools.
-#[cfg(not(test))]
-const QUERY_PAGE_SIZE: usize = 1000;
-#[cfg(test)]
-const QUERY_PAGE_SIZE: usize = 10;
 
 /// A client to the Balancer V2 subgraph.
 ///
@@ -50,37 +46,7 @@ impl BalancerSubgraphClient {
         use self::pools_query::*;
 
         let block_number = self.get_safe_block().await?;
-
-        let mut pools = Vec::new();
-        let mut last_id = H256::default();
-
-        // We do paging by last ID instead of using `skip`. This is the
-        // suggested approach to paging best performance:
-        // <https://thegraph.com/docs/graphql-api#pagination>
-        loop {
-            let page = self
-                .0
-                .query::<Data>(
-                    QUERY,
-                    Some(json_map! {
-                        "block" => block_number,
-                        "pageSize" => QUERY_PAGE_SIZE,
-                        "lastId" => json!(last_id),
-                    }),
-                )
-                .await?
-                .pools;
-            let no_more_pages = page.len() != QUERY_PAGE_SIZE;
-            if let Some(last_pool) = page.last() {
-                last_id = last_pool.id;
-            }
-
-            pools.extend(page);
-
-            if no_more_pages {
-                break;
-            }
-        }
+        let pools = self.0.paginated_query(block_number, QUERY).await?;
 
         Ok(RegisteredPools {
             fetched_block_number: block_number,
@@ -155,6 +121,12 @@ pub struct PoolData {
     pub factory: H160,
     pub swap_enabled: bool,
     pub tokens: Vec<Token>,
+}
+
+impl ContainsId for PoolData {
+    fn get_id(&self) -> String {
+        self.id.to_string()
+    }
 }
 
 /// Supported pool kinds.
@@ -246,6 +218,7 @@ mod tests {
     use crate::sources::balancer_v2::swap::fixed_point::Bfp;
     use ethcontract::{H160, H256};
     use maplit::hashmap;
+    use serde_json::json;
     use std::collections::HashMap;
 
     #[test]
