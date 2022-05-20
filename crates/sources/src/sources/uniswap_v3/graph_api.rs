@@ -121,7 +121,7 @@ pub struct RegisteredPools {
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolData {
-    pub id: String,
+    pub id: H160,
     pub token0: Token,
     pub token1: Token,
     pub fee_tier: U256,
@@ -133,7 +133,7 @@ pub struct PoolData {
 
 impl ContainsId for PoolData {
     fn get_id(&self) -> String {
-        self.id.clone()
+        self.id.to_string()
     }
 }
 
@@ -242,7 +242,7 @@ mod tests {
             Data {
                 inner: vec![
                     PoolData {
-                        id: "0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28".to_string(),
+                        id: H160::from_str("0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28").unwrap(),
                         token0: Token {
                             id: H160::from_str("0xbef81556ef066ec840a540595c8d12f516b6378f")
                                 .unwrap(),
@@ -261,7 +261,7 @@ mod tests {
                         tick: BigInt::from(-92110),
                     },
                     PoolData {
-                        id: "0x0002e63328169d7feea121f1e32e4f620abf0352".to_string(),
+                        id: H160::from_str("0x0002e63328169d7feea121f1e32e4f620abf0352").unwrap(),
                         token0: Token {
                             id: H160::from_str("0x0d438f3b5175bebc262bf23753c1e53d03432bde")
                                 .unwrap(),
