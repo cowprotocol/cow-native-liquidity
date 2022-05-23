@@ -1,16 +1,61 @@
 //! Module containing The Graph API client used for retrieving Uniswap V3
-//! pools from the Uniswap V3 subgraph.
+//! data from the Uniswap V3 subgraph.
 
-use crate::{event_handling::MAX_REORG_BLOCK_COUNT, subgraph::SubgraphClient};
+use crate::{
+    event_handling::MAX_REORG_BLOCK_COUNT,
+    subgraph::{ContainsId, SubgraphClient},
+};
 use anyhow::{bail, Result};
 use ethcontract::{H160, U256};
 use num::BigInt;
 use reqwest::Client;
 use serde::Deserialize;
-use serde_json::json;
 
-/// The page size when querying pools.
-const QUERY_PAGE_SIZE: usize = 500;
+const POOLS_QUERY: &str = r#"
+        query Pools($block: Int, $pageSize: Int, $lastId: ID) {
+            pools(
+                block: { number: $block }
+                first: $pageSize
+                where: {
+                    id_gt: $lastId
+                    tick_not: null
+                }
+            ) {
+                id
+                token0 {
+                    symbol
+                    id
+                    decimals
+                }
+                token1 {
+                    symbol
+                    id
+                    decimals
+                }
+                feeTier
+                liquidity
+                sqrtPrice
+                tick
+            }
+        }
+    "#;
+
+const TICKS_QUERY: &str = r#"
+    query Ticks($block: Int, $pageSize: Int, $lastId: ID) {
+        ticks(
+            block: { number: $block }
+            first: $pageSize
+            where: {
+                id_gt: $lastId
+            }
+        ) {
+            id
+            tickIdx
+            liquidityNet
+            poolAddress
+        }
+    }
+"#;
 
 /// A client to the Uniswap V3 subgraph.
 ///
@@ -30,45 +75,19 @@ impl UniV3SubgraphClient {
 
     /// Retrieves the list of registered pools from the subgraph.
     pub async fn get_registered_pools(&self) -> Result<RegisteredPools> {
-        use self::pools_query::*;
-
         let block_number = self.get_safe_block().await?;
-
-        let mut pools = Vec::new();
-        let mut last_id = H160::default();
-
-        // We do paging by last ID instead of using `skip`. This is the
-        // suggested approach to paging best performance:
-        // <https://thegraph.com/docs/graphql-api#pagination>
-        loop {
-            let page = self
-                .0
-                .query::<Data>(
-                    QUERY,
-                    Some(json_map! {
-                        "block" => block_number,
-                        "pageSize" => QUERY_PAGE_SIZE,
-                        "lastId" => json!(last_id),
-                    }),
-                )
-                .await?
-                .pools;
-            let no_more_pages = page.len() != QUERY_PAGE_SIZE;
-            if let Some(last_pool) = page.last() {
-                last_id = last_pool.id;
-            }
-
-            pools.extend(page);
-
-            if no_more_pages {
-                break;
-            }
-        }
+        let pools = self.0.paginated_query(block_number, POOLS_QUERY).await?;
 
         Ok(RegisteredPools {
             fetched_block_number: block_number,
             pools,
         })
+    }
+
+    /// Retrieves the list of ticks from the subgraph.
+    pub async fn get_ticks(&self) -> Result<Vec<TickData>> {
+        let block_number = self.get_safe_block().await?;
+        self.0.paginated_query(block_number, TICKS_QUERY).await
     }
 
     /// Retrieves a recent block number for which it is safe to assume no
@@ -112,6 +131,30 @@ pub struct PoolData {
     pub tick: BigInt,
 }
 
+impl ContainsId for PoolData {
+    fn get_id(&self) -> String {
+        self.id.to_string()
+    }
+}
+
+/// Tick data from the Uniswap V3 subgraph.
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TickData {
+    pub id: String,
+    #[serde(with = "serde_with::rust::display_fromstr")]
+    pub tick_idx: BigInt,
+    #[serde(with = "serde_with::rust::display_fromstr")]
+    pub liquidity_net: BigInt,
+    pub pool_address: H160,
+}
+
+impl ContainsId for TickData {
+    fn get_id(&self) -> String {
+        self.id.clone()
+    }
+}
+
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Token {
@@ -119,45 +162,6 @@ pub struct Token {
     pub symbol: String,
     #[serde(with = "serde_with::rust::display_fromstr")]
     pub decimals: u8,
-}
-
-mod pools_query {
-    use super::PoolData;
-    use serde::Deserialize;
-
-    pub const QUERY: &str = r#"
-        query Pools($block: Int, $pageSize: Int, $lastId: ID) {
-            pools(
-                block: { number: $block }
-                first: $pageSize
-                where: {
-                    id_gt: $lastId
-                    tick_not: null
-                }
-            ) {
-                id
-                token0 {
-                    symbol
-                    id
-                    decimals
-                }
-                token1 {
-                    symbol
-                    id
-                    decimals
-                }
-                feeTier
-                liquidity
-                sqrtPrice
-                tick
-            }
-        }
-    "#;
-
-    #[derive(Debug, Deserialize, PartialEq)]
-    pub struct Data {
-        pub pools: Vec<PoolData>,
-    }
 }
 
 mod block_number_query {
@@ -188,16 +192,15 @@ mod block_number_query {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
     use super::*;
+    use crate::subgraph::Data;
+    use serde_json::json;
+    use std::str::FromStr;
 
     #[test]
     fn decode_pools_data() {
-        use pools_query::*;
-
         assert_eq!(
-            serde_json::from_value::<Data>(json!({
+            serde_json::from_value::<Data<PoolData>>(json!({
                 "pools": [
                     {
                       "id": "0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28",
@@ -237,7 +240,7 @@ mod tests {
             }))
             .unwrap(),
             Data {
-                pools: vec![
+                inner: vec![
                     PoolData {
                         id: H160::from_str("0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28").unwrap(),
                         token0: Token {
@@ -282,6 +285,47 @@ mod tests {
     }
 
     #[test]
+    fn decode_ticks_data() {
+        assert_eq!(
+            serde_json::from_value::<Data<TickData>>(json!({
+                "ticks": [
+                    {
+                      "id": "0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28#0",
+                      "tickIdx": "0",
+                      "liquidityNet": "-303015134493562686441",
+                      "poolAddress": "0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28"
+                    },
+                    {
+                      "id": "0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28#-92200",
+                      "tickIdx": "-92200",
+                      "liquidityNet": "303015134493562686441",
+                      "poolAddress": "0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28"
+                    }
+                ],
+            }))
+            .unwrap(),
+            Data {
+                inner: vec![
+                    TickData {
+                        id: "0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28#0".to_string(),
+                        tick_idx: BigInt::from(0),
+                        liquidity_net: BigInt::from(-303015134493562686441i128),
+                        pool_address: H160::from_str("0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28")
+                            .unwrap(),
+                    },
+                    TickData {
+                        id: "0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28#-92200".to_string(),
+                        tick_idx: BigInt::from(-92200),
+                        liquidity_net: BigInt::from(303015134493562686441i128),
+                        pool_address: H160::from_str("0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28")
+                            .unwrap(),
+                    },
+                ],
+            }
+        );
+    }
+
+    #[test]
     fn decode_block_number_data() {
         use block_number_query::*;
 
@@ -304,7 +348,7 @@ mod tests {
 
     #[tokio::test]
     #[ignore]
-    async fn uniswap_v3_subgraph_query() {
+    async fn uniswap_v3_subgraph_query_get_pools() {
         let client = UniV3SubgraphClient::for_chain(1, Client::new()).unwrap();
         let result = client.get_registered_pools().await.unwrap();
         println!(
@@ -312,5 +356,13 @@ mod tests {
             result.pools.len(),
             result.fetched_block_number,
         );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn uniswap_v3_subgraph_query_get_ticks() {
+        let client = UniV3SubgraphClient::for_chain(1, Client::new()).unwrap();
+        let result = client.get_ticks().await.unwrap();
+        println!("Retrieved {} total ticks", result.len(),);
     }
 }
