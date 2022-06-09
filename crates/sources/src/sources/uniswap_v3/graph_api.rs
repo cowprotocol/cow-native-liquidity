@@ -3,42 +3,66 @@
 
 use crate::{
     event_handling::MAX_REORG_BLOCK_COUNT,
-    subgraph::{ContainsId, SubgraphClient},
+    subgraph::{ContainsId, Data, SubgraphClient},
 };
 use anyhow::{bail, Result};
 use ethcontract::{H160, U256};
 use num::BigInt;
 use reqwest::Client;
 use serde::Deserialize;
+use serde_json::json;
 
-const POOLS_QUERY: &str = r#"
-        query Pools($block: Int, $pageSize: Int, $lastId: ID) {
-            pools(
-                block: { number: $block }
-                first: $pageSize
-                where: {
-                    id_gt: $lastId
-                    tick_not: null
-                }
-            ) {
+const ALL_POOLS_QUERY: &str = r#"
+    query Pools($block: Int, $pageSize: Int, $lastId: ID) {
+        pools(
+            block: { number: $block }
+            first: $pageSize
+            where: {
+                id_gt: $lastId
+                tick_not: null
+            }
+        ) {
+            id
+            token0 {
+                symbol
                 id
-                token0 {
-                    symbol
-                    id
-                    decimals
-                }
-                token1 {
-                    symbol
-                    id
-                    decimals
-                }
-                feeTier
-                liquidity
-                sqrtPrice
-                tick
+                decimals
+            }
+            token1 {
+                symbol
+                id
+                decimals
+            }
+            feeTier
+            liquidity
+            sqrtPrice
+            tick
+        }
+    }
+"#;
+
+const POOLS_WITH_TICKS_BY_IDS_QUERY: &str = r#"
+    query Poolsbyidswithticks($block: Int, $ids: [ID]) {
+        pools(
+            block: { number: $block }
+            where: {
+                id_in: $ids
+                tick_not: null
+            }
+        ) {
+            id
+            liquidity
+            sqrtPrice
+            tick
+            ticks {
+                id
+                tickIdx
+                liquidityNet
+                poolAddress
             }
         }
-    "#;
+    }
+"#;
 
 const TICKS_QUERY: &str = r#"
     query Ticks($block: Int, $pageSize: Int, $lastId: ID) {
@@ -76,12 +100,31 @@ impl UniV3SubgraphClient {
     /// Retrieves the list of registered pools from the subgraph.
     pub async fn get_registered_pools(&self) -> Result<RegisteredPools> {
         let block_number = self.get_safe_block().await?;
-        let pools = self.0.paginated_query(block_number, POOLS_QUERY).await?;
+        let pools = self
+            .0
+            .paginated_query(block_number, ALL_POOLS_QUERY)
+            .await?;
 
         Ok(RegisteredPools {
             fetched_block_number: block_number,
             pools,
         })
+    }
+
+    /// Retrieves the pools (including ticks) by ids from the subgraph.
+    pub async fn get_pools_with_ticks_by_ids(&self, ids: &[H160]) -> Result<Vec<PoolData>> {
+        let block_number = self.get_safe_block().await?;
+        Ok(self
+            .0
+            .query::<Data<PoolData>>(
+                POOLS_WITH_TICKS_BY_IDS_QUERY,
+                Some(json_map! {
+                    "block" => block_number,
+                    "ids" => json!(ids)
+                }),
+            )
+            .await?
+            .inner)
     }
 
     /// Retrieves the list of ticks from the subgraph.
@@ -122,13 +165,14 @@ pub struct RegisteredPools {
 #[serde(rename_all = "camelCase")]
 pub struct PoolData {
     pub id: H160,
-    pub token0: Token,
-    pub token1: Token,
-    pub fee_tier: U256,
+    pub token0: Option<Token>,
+    pub token1: Option<Token>,
+    pub fee_tier: Option<U256>,
     pub liquidity: U256,
     pub sqrt_price: U256,
     #[serde(with = "serde_with::rust::display_fromstr")]
     pub tick: BigInt,
+    pub ticks: Option<Vec<TickData>>,
 }
 
 impl ContainsId for PoolData {
@@ -243,41 +287,43 @@ mod tests {
                 inner: vec![
                     PoolData {
                         id: H160::from_str("0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28").unwrap(),
-                        token0: Token {
+                        token0: Some(Token {
                             id: H160::from_str("0xbef81556ef066ec840a540595c8d12f516b6378f")
                                 .unwrap(),
                             symbol: "BCZ".to_string(),
                             decimals: 18,
-                        },
-                        token1: Token {
+                        }),
+                        token1: Some(Token {
                             id: H160::from_str("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")
                                 .unwrap(),
                             symbol: "WETH".to_string(),
                             decimals: 18,
-                        },
-                        fee_tier: U256::from_str("10000").unwrap(),
+                        }),
+                        fee_tier: Some(U256::from_str("10000").unwrap()),
                         liquidity: U256::from_str("303015134493562686441").unwrap(),
                         sqrt_price: U256::from_str("792216481398733702759960397").unwrap(),
                         tick: BigInt::from(-92110),
+                        ticks: None,
                     },
                     PoolData {
                         id: H160::from_str("0x0002e63328169d7feea121f1e32e4f620abf0352").unwrap(),
-                        token0: Token {
+                        token0: Some(Token {
                             id: H160::from_str("0x0d438f3b5175bebc262bf23753c1e53d03432bde")
                                 .unwrap(),
                             symbol: "wNXM".to_string(),
                             decimals: 18,
-                        },
-                        token1: Token {
+                        }),
+                        token1: Some(Token {
                             id: H160::from_str("0x903bef1736cddf2a537176cf3c64579c3867a881")
                                 .unwrap(),
                             symbol: "ICHI".to_string(),
                             decimals: 9,
-                        },
-                        fee_tier: U256::from_str("3000").unwrap(),
+                        }),
+                        fee_tier: Some(U256::from_str("3000").unwrap()),
                         liquidity: U256::from_str("3125586395511534995").unwrap(),
                         sqrt_price: U256::from_str("5986323062404391218190509").unwrap(),
                         tick: BigInt::from(-189822),
+                        ticks: None,
                     },
                 ],
             }
@@ -355,6 +401,40 @@ mod tests {
             "Retrieved {} total pools at block {}",
             result.pools.len(),
             result.fetched_block_number,
+        );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn uniswap_v3_subgraph_query_get_pools_by_ids() {
+        let client = UniV3SubgraphClient::for_chain(1, Client::new()).unwrap();
+        let ids = vec![
+            H160::from_str("0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28").unwrap(),
+            H160::from_str("0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28").unwrap(),
+            H160::from_str("0x0002e63328169d7feea121f1e32e4f620abf0352").unwrap(),
+            H160::from_str("0x000ea4a83acefdd62b1b43e9ccc281f442651520").unwrap(),
+            H160::from_str("0x000f0c0b0b791e855dcc5ad6501c7529dea882e0").unwrap(),
+            H160::from_str("0x0025ade782cc2b2415d1e841a8d52ff5dce33dfe").unwrap(),
+            H160::from_str("0x002c0b78c8057636918b963cd26c07b7f2892bd8").unwrap(),
+            H160::from_str("0x00323a300261042dd5d697e3f92a06279cc7d15b").unwrap(),
+            H160::from_str("0x0041426a64a85ef884387dc3a69f9df1fbb7f9d1").unwrap(),
+            H160::from_str("0x005843e075e77ba46a26d24914db10a4d9ca0122").unwrap(),
+            H160::from_str("0x0059b4c53c85bb8159014bfd20700c14b29c4483").unwrap(),
+            H160::from_str("0x005b584315d7c47bb5fca504ac0d8df56aea40f9").unwrap(),
+            H160::from_str("0x005cd18887579ed785fb3e5e2c9356c31b78f89e").unwrap(),
+            H160::from_str("0x005e3dc62b7a269bef2a7d06e06cc0c991375c6f").unwrap(),
+            H160::from_str("0x0068bb604413dfee5c453907bb150d0312a0f257").unwrap(),
+            H160::from_str("0x006ac24a1f49e472673c82327bdf177a5c11491b").unwrap(),
+            H160::from_str("0x00953df8289165834539f5fdbc2bf40fa1538840").unwrap(),
+            H160::from_str("0x009b5d59ff6d7b5140b76fd0d25396f8014d5bd0").unwrap(),
+            H160::from_str("0x00a151b39b43f6a79366f9129222b9370e30a702").unwrap(),
+            H160::from_str("0x00a9205611cc32ec9c0d16fc58f31b9355ec7ade").unwrap(),
+        ];
+        let result = client.get_pools_with_ticks_by_ids(&ids).await.unwrap();
+        println!(
+            "Retrieved {} total pools out of {}",
+            result.len(),
+            ids.len()
         );
     }
 
