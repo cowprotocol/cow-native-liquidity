@@ -41,37 +41,22 @@ impl UniswapV3PoolFetcher {
         );
 
         let mut pools_by_token_pair: HashMap<TokenPair, HashSet<H160>> = HashMap::new();
-        let mut pools: HashMap<H160, CachedPool> = HashMap::new();
-
-        let deep_past = Instant::now()
-            .checked_sub(Duration::from_secs(10000))
-            .context("cant create deep past")?;
-
         for pool in registered_pools.pools {
             let token0 = pool.token0.clone().context("token0 does not exist")?.id;
             let token1 = pool.token1.clone().context("token1 does not exist")?.id;
 
             let pair = TokenPair::new(token0, token1).context("cant create pair")?;
             pools_by_token_pair.entry(pair).or_default().insert(pool.id);
-            pools.insert(
-                pool.id,
-                CachedPool {
-                    pool,
-                    updated_at: deep_past,
-                    requested_at: deep_past,
-                },
-            );
         }
 
         Ok(Self {
             pools_by_token_pair,
             graph_api,
-            cache: Mutex::new(pools),
+            cache: Mutex::new(Default::default()),
             max_age,
         })
     }
 
-    /// Assumes that all pool ids already exist in the cache
     async fn get_pools_and_update_cache(&self, pool_ids: &[H160]) -> Result<Vec<PoolData>> {
         let pools = self.graph_api.get_pools_with_ticks_by_ids(pool_ids).await?;
         let now = Instant::now();
@@ -91,19 +76,28 @@ impl UniswapV3PoolFetcher {
 
     /// Returns cached pools and ids of outdated pools.
     fn get_cached_pools(&self, token_pairs: &HashSet<TokenPair>) -> (Vec<PoolData>, Vec<H160>) {
-        let now = Instant::now();
-        let mut cache = self.cache.lock().unwrap();
-        token_pairs
+        let mut pool_ids = token_pairs
             .iter()
             .filter_map(|pair| self.pools_by_token_pair.get(pair))
             .flatten()
-            .partition_map(|pool_id| match cache.get_mut(pool_id) {
-                Some(entry) if now.saturating_duration_since(entry.updated_at) < self.max_age => {
-                    entry.requested_at = now;
-                    Either::Left(entry.pool.clone())
-                }
-                _ => Either::Right(pool_id),
-            })
+            .peekable();
+
+        match pool_ids.peek() {
+            Some(_) => {
+                let now = Instant::now();
+                let mut cache = self.cache.lock().unwrap();
+                pool_ids.partition_map(|pool_id| match cache.get_mut(pool_id) {
+                    Some(entry)
+                        if now.saturating_duration_since(entry.updated_at) < self.max_age =>
+                    {
+                        entry.requested_at = now;
+                        Either::Left(entry.pool.clone())
+                    }
+                    _ => Either::Right(pool_id),
+                })
+            }
+            None => Default::default(),
+        }
     }
 }
 
@@ -133,8 +127,8 @@ impl CachingUniswapV3PoolFetcher {
     }
 
     /// Spawns a background task maintaining the cache once per `update_interval`.
-    /// Only soon to be outdated prices get updated and recently used prices have a higher priority.
-    /// If `update_size` is `Some(n)` at most `n` prices get updated per interval.
+    /// Only soon to be outdated pools get updated and recently used pools have a higher priority.
+    /// If `update_size` is `Some(n)` at most `n` pools get updated per interval.
     /// If `update_size` is `None` no limit gets applied.
     pub fn spawn_maintenance_task(&self, update_interval: Duration, update_size: Option<usize>) {
         tokio::spawn(update_recently_used_outdated_pools(
