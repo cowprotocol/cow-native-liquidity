@@ -161,7 +161,7 @@ pub struct RegisteredPools {
 }
 
 /// Pool data from the Uniswap V3 subgraph.
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolData {
     pub id: H160,
@@ -182,7 +182,7 @@ impl ContainsId for PoolData {
 }
 
 /// Tick data from the Uniswap V3 subgraph.
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TickData {
     pub id: String,
@@ -199,7 +199,7 @@ impl ContainsId for TickData {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Token {
     pub id: H160,
@@ -409,7 +409,6 @@ mod tests {
     async fn uniswap_v3_subgraph_query_get_pools_by_ids() {
         let client = UniV3SubgraphClient::for_chain(1, Client::new()).unwrap();
         let ids = vec![
-            H160::from_str("0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28").unwrap(),
             H160::from_str("0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28").unwrap(),
             H160::from_str("0x0002e63328169d7feea121f1e32e4f620abf0352").unwrap(),
             H160::from_str("0x000ea4a83acefdd62b1b43e9ccc281f442651520").unwrap(),
