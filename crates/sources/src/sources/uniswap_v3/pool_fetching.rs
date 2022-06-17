@@ -23,6 +23,7 @@ pub struct CachedPool {
 
 pub struct UniswapV3PoolFetcher {
     graph_api: UniV3SubgraphClient,
+    /// H160 is pool id while TokenPair is a pair or tokens for each pool
     pools_by_token_pair: HashMap<TokenPair, HashSet<H160>>,
     cache: Mutex<HashMap<H160, CachedPool>>,
     max_age: Duration,
@@ -52,7 +53,7 @@ impl UniswapV3PoolFetcher {
         Ok(Self {
             pools_by_token_pair,
             graph_api,
-            cache: Mutex::new(Default::default()),
+            cache: Default::default(),
             max_age,
         })
     }
@@ -115,9 +116,9 @@ impl PoolFetching for UniswapV3PoolFetcher {
     }
 }
 
-pub struct CachingUniswapV3PoolFetcher(Arc<UniswapV3PoolFetcher>);
+pub struct AutoUpdatingUniswapV3PoolFetcher(Arc<UniswapV3PoolFetcher>);
 
-impl CachingUniswapV3PoolFetcher {
+impl AutoUpdatingUniswapV3PoolFetcher {
     /// Creates new CachingUniswapV3PoolFetcher with the purpose of spawning an additional
     /// background task for periodic update of cache
     pub async fn new(chain_id: u64, max_age: Duration, client: Client) -> Result<Self> {
@@ -140,7 +141,7 @@ impl CachingUniswapV3PoolFetcher {
 }
 
 #[async_trait::async_trait]
-impl PoolFetching for CachingUniswapV3PoolFetcher {
+impl PoolFetching for AutoUpdatingUniswapV3PoolFetcher {
     async fn fetch(&self, token_pairs: &HashSet<TokenPair>) -> Result<Vec<PoolData>> {
         self.0.fetch(token_pairs).await
     }
@@ -203,7 +204,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn caching_uniswap_v3_pool_fetcher_test() {
-        let fetcher = CachingUniswapV3PoolFetcher::new(1, Duration::from_secs(10), Client::new())
+        let fetcher = AutoUpdatingUniswapV3PoolFetcher::new(1, Duration::from_secs(10), Client::new())
             .await
             .unwrap();
 
@@ -217,7 +218,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn fetch_test() {
-        let fetcher = CachingUniswapV3PoolFetcher::new(1, Duration::from_secs(10), Client::new())
+        let fetcher = AutoUpdatingUniswapV3PoolFetcher::new(1, Duration::from_secs(10), Client::new())
             .await
             .unwrap();
         let token_pairs = HashSet::from([TokenPair::new(
