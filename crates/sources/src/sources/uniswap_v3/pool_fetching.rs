@@ -204,9 +204,10 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn caching_uniswap_v3_pool_fetcher_test() {
-        let fetcher = AutoUpdatingUniswapV3PoolFetcher::new(1, Duration::from_secs(10), Client::new())
-            .await
-            .unwrap();
+        let fetcher =
+            AutoUpdatingUniswapV3PoolFetcher::new(1, Duration::from_secs(10), Client::new())
+                .await
+                .unwrap();
 
         fetcher.spawn_maintenance_task(Duration::from_secs(1), Some(50));
 
@@ -218,9 +219,10 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn fetch_test() {
-        let fetcher = AutoUpdatingUniswapV3PoolFetcher::new(1, Duration::from_secs(10), Client::new())
-            .await
-            .unwrap();
+        let fetcher =
+            AutoUpdatingUniswapV3PoolFetcher::new(1, Duration::from_secs(10), Client::new())
+                .await
+                .unwrap();
         let token_pairs = HashSet::from([TokenPair::new(
             H160::from_str("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2").unwrap(),
             H160::from_str("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48").unwrap(),
