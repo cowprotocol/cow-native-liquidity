@@ -59,12 +59,27 @@ fn run() -> Result<()> {
             "GPv2AllowListAuthentication",
             // We use `_Implementation` because the use of a proxy contract makes
             // deploying  for the e2e tests more cumbersome.
-            "@gnosis.pm/gp-v2-contracts@1.0.1/\
+            "@cowprotocol/contracts@1.1.2/\
              deployments/mainnet/GPv2AllowListAuthentication_Implementation.json",
         )?
         .npm(
             "GPv2Settlement",
-            "@gnosis.pm/gp-v2-contracts@1.0.1/deployments/mainnet/GPv2Settlement.json",
+            "@cowprotocol/contracts@1.1.2/deployments/mainnet/GPv2Settlement.json",
+        )?
+        .npm(
+            "GnosisSafe",
+            "@gnosis.pm/safe-contracts@1.3.0/build/artifacts/contracts/\
+             GnosisSafe.sol/GnosisSafe.json",
+        )?
+        .npm(
+            "GnosisSafeCompatibilityFallbackHandler",
+            "@gnosis.pm/safe-contracts@1.3.0/build/artifacts/contracts/\
+             handler/CompatibilityFallbackHandler.sol/CompatibilityFallbackHandler.json",
+        )?
+        .npm(
+            "GnosisSafeProxy",
+            "@gnosis.pm/safe-contracts@1.3.0/build/artifacts/contracts/\
+             proxies/GnosisSafeProxy.sol/GnosisSafeProxy.json",
         )?
         .npm(
             "UniswapV2Factory",
@@ -102,6 +117,10 @@ fn run() -> Result<()> {
             "ERC20",
             "@openzeppelin/contracts@3.3.0/build/contracts/ERC20.json",
         )?
+        .manual(
+            "ERC1271SignatureValidator",
+            "Manually vendored ABI for ERC-1271 signature validation",
+        )
         .npm(
             "IUniswapLikeFactory",
             "@uniswap/v2-periphery@1.1.0-beta.0/build/IUniswapV2Factory.json",
@@ -138,11 +157,11 @@ fn run() -> Result<()> {
         )?
         .npm(
             "CowProtocolToken",
-            "@gnosis.pm/cow-token@1.0.3/build/artifacts/src/contracts/CowProtocolToken.sol/CowProtocolToken.json",
+            "@cowprotocol/token@1.1.0/build/artifacts/src/contracts/CowProtocolToken.sol/CowProtocolToken.json",
         )?
         .npm(
             "CowProtocolVirtualToken",
-            "@gnosis.pm/cow-token@1.0.3/build/artifacts/src/contracts/CowProtocolVirtualToken.sol/CowProtocolVirtualToken.json",
+            "@cowprotocol/token@1.1.0/build/artifacts/src/contracts/CowProtocolVirtualToken.sol/CowProtocolVirtualToken.json",
         )?;
 
     Ok(())

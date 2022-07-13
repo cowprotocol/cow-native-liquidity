@@ -1006,6 +1006,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "liquidity-sources"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap",
+ "contracts",
+ "ethcontract",
+ "ethcontract-mock",
+ "futures",
+ "hex-literal",
+ "itertools",
+ "jsonrpc-core",
+ "lazy_static",
+ "lru",
+ "maplit",
+ "mockall",
+ "num",
+ "once_cell",
+ "primitive-types",
+ "prometheus",
+ "prometheus-metric-storage",
+ "regex",
+ "reqwest",
+ "scopeguard",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "warp",
+ "web3",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1862,43 +1899,6 @@ checksum = "66d72b759436ae32898a2af0a14218dbf55efde3feeb170eb623637db85ee1e0"
 dependencies = [
  "libc",
  "winapi",
-]
-
-[[package]]
-name = "sources"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap",
- "contracts",
- "ethcontract",
- "ethcontract-mock",
- "futures",
- "hex-literal",
- "itertools",
- "jsonrpc-core",
- "lazy_static",
- "lru",
- "maplit",
- "mockall",
- "num",
- "once_cell",
- "primitive-types",
- "prometheus",
- "prometheus-metric-storage",
- "regex",
- "reqwest",
- "scopeguard",
- "serde",
- "serde_json",
- "serde_with",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tracing",
- "warp",
- "web3",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 [package]
-name = "sources"
+name = "liquidity-sources"
 version = "0.1.0"
 authors = ["Cowswap Developers <developers@cow.fi>"]
 edition = "2021"
