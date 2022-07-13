@@ -35,10 +35,17 @@ include!(concat!(env!("OUT_DIR"), "/ERC20.rs"));
 include!(concat!(env!("OUT_DIR"), "/ERC20Mintable.rs"));
 include!(concat!(env!("OUT_DIR"), "/GPv2AllowListAuthentication.rs"));
 include!(concat!(env!("OUT_DIR"), "/GPv2Settlement.rs"));
+include!(concat!(env!("OUT_DIR"), "/GnosisSafe.rs"));
+include!(concat!(
+    env!("OUT_DIR"),
+    "/GnosisSafeCompatibilityFallbackHandler.rs"
+));
+include!(concat!(env!("OUT_DIR"), "/GnosisSafeProxy.rs"));
 include!(concat!(env!("OUT_DIR"), "/HoneyswapFactory.rs"));
 include!(concat!(env!("OUT_DIR"), "/HoneyswapRouter.rs"));
 include!(concat!(env!("OUT_DIR"), "/IUniswapLikePair.rs"));
 include!(concat!(env!("OUT_DIR"), "/IUniswapLikeRouter.rs"));
+include!(concat!(env!("OUT_DIR"), "/ERC1271SignatureValidator.rs"));
 include!(concat!(env!("OUT_DIR"), "/SushiSwapFactory.rs"));
 include!(concat!(env!("OUT_DIR"), "/SushiSwapRouter.rs"));
 include!(concat!(env!("OUT_DIR"), "/SwaprFactory.rs"));
@@ -129,8 +136,8 @@ mod tests {
             assert_has_deployment_address!(UniswapV2Factory for *network);
             assert_has_deployment_address!(UniswapV2Router02 for *network);
         }
-        {
-            let network = &100;
+        #[allow(clippy::single_element_loop)]
+        for network in &[100] {
             assert_has_deployment_address!(HoneyswapFactory for *network);
             assert_has_deployment_address!(HoneyswapRouter for *network);
         }
