@@ -48,6 +48,7 @@ const POOLS_WITH_TICKS_BY_IDS_QUERY: &str = r#"
             where: {
                 id_in: $ids
                 tick_not: null
+                ticks_: { liquidityNet_not: "0" }
             }
         ) {
             id
