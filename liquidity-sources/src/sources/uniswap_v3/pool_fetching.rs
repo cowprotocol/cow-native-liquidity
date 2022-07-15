@@ -43,7 +43,7 @@ pub struct PoolState {
 /// Tick data in a format prepared for solvers.
 #[derive(Debug, Clone)]
 pub struct TickInfo {
-    // (tickIdx, liquidity_net)
+    // (tick_idx, liquidity_net)
     ticks: Vec<(BigInt, BigInt)>,
 }
 
