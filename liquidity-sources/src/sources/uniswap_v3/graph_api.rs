@@ -9,7 +9,7 @@ use anyhow::{bail, Result};
 use ethcontract::{H160, U256};
 use num::BigInt;
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 const ALL_POOLS_QUERY: &str = r#"
@@ -72,6 +72,7 @@ const TICKS_QUERY: &str = r#"
             first: $pageSize
             where: {
                 id_gt: $lastId
+                liquidityNet_not: "0"
             }
         ) {
             id
@@ -200,7 +201,7 @@ impl ContainsId for TickData {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Token {
     pub id: H160,
