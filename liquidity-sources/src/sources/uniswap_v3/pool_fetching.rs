@@ -64,6 +64,7 @@ impl Serialize for TickInfo {
 #[derive(Clone, Debug, Serialize)]
 pub struct PoolStats {
     #[serde(with = "serde_with::rust::display_fromstr")]
+    #[serde(rename = "mean")]
     pub mean_gas: U256,
 }
 
@@ -303,13 +304,17 @@ mod tests {
                     "sqrt_price": "792216481398733702759960397",
                     "liquidity": "303015134493562686441",
                     "tick": "-92110",
-                    "liquidity_net": {
-                        "ticks": [],
-                    },
+                    "liquidity_net":
+                        {
+                            "67260": "5812623076452005012674" ,
+                            "-122070": "104713649338178916454" ,
+                            "-77030": "1182024318125220460617" ,
+                        }
+                    ,
                     "fee": "10000",
                 },
                 "gas_stats": {
-                    "mean_gas": "300000",
+                    "mean": "300000",
                 }
             }),
             serde_json::to_value(PoolInfo {
