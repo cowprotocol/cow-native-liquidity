@@ -3,7 +3,7 @@ use crate::token_pair::TokenPair;
 use anyhow::{Context, Result};
 use ethcontract::{H160, U256};
 use itertools::{Either, Itertools};
-use num::{BigInt, Zero};
+use num::{rational::Ratio, BigInt, Zero};
 use reqwest::Client;
 use serde::{ser::SerializeMap, Serialize};
 use std::{
@@ -18,7 +18,7 @@ pub trait PoolFetching: Send + Sync {
 }
 
 /// Pool data in a format prepared for solvers.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct PoolInfo {
     pub address: H160,
     pub tokens: Vec<Token>,
@@ -27,7 +27,7 @@ pub struct PoolInfo {
 }
 
 /// Pool state in a format prepared for solvers.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct PoolState {
     #[serde(with = "serde_with::rust::display_fromstr")]
     pub sqrt_price: U256,
@@ -37,11 +37,11 @@ pub struct PoolState {
     pub tick: BigInt,
     pub liquidity_net: TickInfo,
     #[serde(with = "serde_with::rust::display_fromstr")]
-    pub fee: U256,
+    pub fee: Ratio<u32>,
 }
 
 /// Tick data in a format prepared for solvers.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TickInfo {
     // (tick_idx, liquidity_net)
     ticks: Vec<(BigInt, BigInt)>,
@@ -61,7 +61,7 @@ impl Serialize for TickInfo {
 }
 
 /// Pool stats in a format prepared for solvers
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct PoolStats {
     #[serde(with = "serde_with::rust::display_fromstr")]
     #[serde(rename = "mean")]
@@ -96,7 +96,7 @@ impl TryFrom<PoolData> for PoolInfo {
                         })
                         .collect(),
                 },
-                fee: pool.fee_tier.context("no fee")?,
+                fee: Ratio::new(pool.fee_tier.context("no fee")?.as_u32(), 1_000_000u32),
             },
             gas_stats: PoolStats {
                 mean_gas: U256::from(300_000), // todo: hardcoded for testing purposes
@@ -311,7 +311,7 @@ mod tests {
                             "-77030": "1182024318125220460617" ,
                         }
                     ,
-                    "fee": "10000",
+                    "fee": "1/100",
                 },
                 "gas_stats": {
                     "mean": "300000",
@@ -351,7 +351,7 @@ mod tests {
                             )
                         ]
                     },
-                    fee: U256::from_dec_str("10000").unwrap(),
+                    fee: Ratio::new(10_000u32, 1_000_000u32),
                 },
                 gas_stats: PoolStats {
                     mean_gas: U256::from(300000)
