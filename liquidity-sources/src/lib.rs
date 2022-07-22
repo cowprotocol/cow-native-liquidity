@@ -16,6 +16,7 @@ pub mod token_pair;
 #[cfg(test)]
 #[allow(missing_docs)]
 pub mod transport;
+pub mod u256_decimal;
 
 #[cfg(test)]
 #[allow(missing_docs)]
