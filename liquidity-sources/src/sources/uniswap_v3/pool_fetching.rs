@@ -1,13 +1,14 @@
 use super::graph_api::{PoolData, Token, UniV3SubgraphClient};
-use crate::token_pair::TokenPair;
+use crate::{token_pair::TokenPair, u256_decimal};
 use anyhow::{Context, Result};
 use ethcontract::{H160, U256};
 use itertools::{Either, Itertools};
 use num::{rational::Ratio, BigInt, Zero};
 use reqwest::Client;
-use serde::{ser::SerializeMap, Serialize};
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     sync::{Arc, Mutex, Weak},
     time::{Duration, Instant},
 };
@@ -18,7 +19,7 @@ pub trait PoolFetching: Send + Sync {
 }
 
 /// Pool data in a format prepared for solvers.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PoolInfo {
     pub address: H160,
     pub tokens: Vec<Token>,
@@ -27,43 +28,26 @@ pub struct PoolInfo {
 }
 
 /// Pool state in a format prepared for solvers.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde_as]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PoolState {
-    #[serde(with = "serde_with::rust::display_fromstr")]
+    #[serde(with = "u256_decimal")]
     pub sqrt_price: U256,
-    #[serde(with = "serde_with::rust::display_fromstr")]
+    #[serde(with = "u256_decimal")]
     pub liquidity: U256,
     #[serde(with = "serde_with::rust::display_fromstr")]
     pub tick: BigInt,
-    pub liquidity_net: TickInfo,
+    // (tick_idx, liquidity_net)
+    #[serde_as(as = "BTreeMap<DisplayFromStr, DisplayFromStr>")]
+    pub liquidity_net: Vec<(BigInt, BigInt)>,
     #[serde(with = "serde_with::rust::display_fromstr")]
     pub fee: Ratio<u32>,
 }
 
-/// Tick data in a format prepared for solvers.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TickInfo {
-    // (tick_idx, liquidity_net)
-    ticks: Vec<(BigInt, BigInt)>,
-}
-
-impl Serialize for TickInfo {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut map = serializer.serialize_map(Some(self.ticks.len()))?;
-        for (k, v) in &self.ticks {
-            map.serialize_entry(&k.to_string(), &v.to_string())?;
-        }
-        map.end()
-    }
-}
-
 /// Pool stats in a format prepared for solvers
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PoolStats {
-    #[serde(with = "serde_with::rust::display_fromstr")]
+    #[serde(with = "u256_decimal")]
     #[serde(rename = "mean")]
     pub mean_gas: U256,
 }
@@ -82,20 +66,18 @@ impl TryFrom<PoolData> for PoolInfo {
                 sqrt_price: pool.sqrt_price,
                 liquidity: pool.liquidity,
                 tick: pool.tick,
-                liquidity_net: TickInfo {
-                    ticks: pool
-                        .ticks
-                        .context("no ticks")?
-                        .into_iter()
-                        .filter_map(|tick| {
-                            if tick.liquidity_net.is_zero() {
-                                None
-                            } else {
-                                Some((tick.tick_idx, tick.liquidity_net))
-                            }
-                        })
-                        .collect(),
-                },
+                liquidity_net: pool
+                    .ticks
+                    .context("no ticks")?
+                    .into_iter()
+                    .filter_map(|tick| {
+                        if tick.liquidity_net.is_zero() {
+                            None
+                        } else {
+                            Some((tick.tick_idx, tick.liquidity_net))
+                        }
+                    })
+                    .collect(),
                 fee: Ratio::new(pool.fee_tier.context("no fee")?.as_u32(), 1_000_000u32),
             },
             gas_stats: PoolStats {
@@ -284,81 +266,83 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
-    fn encode_pool_info() {
-        assert_eq!(
-            json!({
-                "address": "0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28",
-                "tokens": [
-                    {
-                        "id": "0xbef81556ef066ec840a540595c8d12f516b6378f",
-                        "symbol": "BCZ",
-                        "decimals": "18",
-                    },
-                    {
-                        "id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-                        "symbol": "WETH",
-                        "decimals": "18",
-                    }
-                ],
-                "state": {
-                    "sqrt_price": "792216481398733702759960397",
-                    "liquidity": "303015134493562686441",
-                    "tick": "-92110",
-                    "liquidity_net":
-                        {
-                            "67260": "5812623076452005012674" ,
-                            "-122070": "104713649338178916454" ,
-                            "-77030": "1182024318125220460617" ,
-                        }
-                    ,
-                    "fee": "1/100",
+    fn encode_decode_pool_info() {
+        let json = json!({
+            "address": "0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28",
+            "tokens": [
+                {
+                    "id": "0xbef81556ef066ec840a540595c8d12f516b6378f",
+                    "symbol": "BCZ",
+                    "decimals": "18",
                 },
-                "gas_stats": {
-                    "mean": "300000",
+                {
+                    "id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                    "symbol": "WETH",
+                    "decimals": "18",
                 }
-            }),
-            serde_json::to_value(PoolInfo {
-                address: H160::from_str("0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28").unwrap(),
-                tokens: vec![
-                    Token {
-                        id: H160::from_str("0xbef81556ef066ec840a540595c8d12f516b6378f").unwrap(),
-                        symbol: "BCZ".to_string(),
-                        decimals: 18,
-                    },
-                    Token {
-                        id: H160::from_str("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").unwrap(),
-                        symbol: "WETH".to_string(),
-                        decimals: 18,
+            ],
+            "state": {
+                "sqrt_price": "792216481398733702759960397",
+                "liquidity": "303015134493562686441",
+                "tick": "-92110",
+                "liquidity_net":
+                    {
+                        "-122070": "104713649338178916454" ,
+                        "-77030": "1182024318125220460617" ,
+                        "67260": "5812623076452005012674" ,
                     }
-                ],
-                state: PoolState {
-                    sqrt_price: U256::from_dec_str("792216481398733702759960397").unwrap(),
-                    liquidity: U256::from_dec_str("303015134493562686441").unwrap(),
-                    tick: BigInt::from_str("-92110").unwrap(),
-                    liquidity_net: TickInfo {
-                        ticks: vec![
-                            (
-                                BigInt::from_str("67260").unwrap(),
-                                BigInt::from_str("5812623076452005012674").unwrap()
-                            ),
-                            (
-                                BigInt::from_str("-122070").unwrap(),
-                                BigInt::from_str("104713649338178916454").unwrap()
-                            ),
-                            (
-                                BigInt::from_str("-77030").unwrap(),
-                                BigInt::from_str("1182024318125220460617").unwrap()
-                            )
-                        ]
-                    },
-                    fee: Ratio::new(10_000u32, 1_000_000u32),
+                ,
+                "fee": "1/100",
+            },
+            "gas_stats": {
+                "mean": "300000",
+            }
+        });
+
+        let pool = PoolInfo {
+            address: H160::from_str("0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28").unwrap(),
+            tokens: vec![
+                Token {
+                    id: H160::from_str("0xbef81556ef066ec840a540595c8d12f516b6378f").unwrap(),
+                    symbol: "BCZ".to_string(),
+                    decimals: 18,
                 },
-                gas_stats: PoolStats {
-                    mean_gas: U256::from(300000)
-                }
-            })
-            .unwrap()
-        );
+                Token {
+                    id: H160::from_str("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").unwrap(),
+                    symbol: "WETH".to_string(),
+                    decimals: 18,
+                },
+            ],
+            state: PoolState {
+                sqrt_price: U256::from_dec_str("792216481398733702759960397").unwrap(),
+                liquidity: U256::from_dec_str("303015134493562686441").unwrap(),
+                tick: BigInt::from_str("-92110").unwrap(),
+                liquidity_net: vec![
+                    (
+                        BigInt::from_str("-122070").unwrap(),
+                        BigInt::from_str("104713649338178916454").unwrap(),
+                    ),
+                    (
+                        BigInt::from_str("-77030").unwrap(),
+                        BigInt::from_str("1182024318125220460617").unwrap(),
+                    ),
+                    (
+                        BigInt::from_str("67260").unwrap(),
+                        BigInt::from_str("5812623076452005012674").unwrap(),
+                    ),
+                ],
+                fee: Ratio::new(10_000u32, 1_000_000u32),
+            },
+            gas_stats: PoolStats {
+                mean_gas: U256::from(300000),
+            },
+        };
+
+        let serialized = serde_json::to_value(pool.clone()).unwrap();
+        let deserialized = serde_json::from_value::<PoolInfo>(json.clone()).unwrap();
+
+        assert_eq!(json, serialized);
+        assert_eq!(pool, deserialized);
     }
 
     #[tokio::test]
