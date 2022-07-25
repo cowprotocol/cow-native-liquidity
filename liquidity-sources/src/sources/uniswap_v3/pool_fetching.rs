@@ -287,9 +287,9 @@ mod tests {
                 "tick": "-92110",
                 "liquidity_net":
                     {
-                        "67260": "5812623076452005012674" ,
                         "-122070": "104713649338178916454" ,
                         "-77030": "1182024318125220460617" ,
+                        "67260": "5812623076452005012674" ,
                     }
                 ,
                 "fee": "1/100",
@@ -319,16 +319,16 @@ mod tests {
                 tick: BigInt::from_str("-92110").unwrap(),
                 liquidity_net: vec![
                     (
-                        BigInt::from_str("67260").unwrap(),
-                        BigInt::from_str("5812623076452005012674").unwrap(),
-                    ),
-                    (
                         BigInt::from_str("-122070").unwrap(),
                         BigInt::from_str("104713649338178916454").unwrap(),
                     ),
                     (
                         BigInt::from_str("-77030").unwrap(),
                         BigInt::from_str("1182024318125220460617").unwrap(),
+                    ),
+                    (
+                        BigInt::from_str("67260").unwrap(),
+                        BigInt::from_str("5812623076452005012674").unwrap(),
                     ),
                 ],
                 fee: Ratio::new(10_000u32, 1_000_000u32),
