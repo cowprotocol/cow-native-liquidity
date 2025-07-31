@@ -10,8 +10,10 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: Swatinem/rust-cache@v1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
       - run: |
           rustup --version
           rustup show
@@ -36,35 +38,37 @@ jobs:
       HARDHAT_VERSION_: 2.6.8
       HARDHAT_PATH_: /home/runner/hardhat
     steps:
-      - uses: actions/checkout@v2
-      - uses: Swatinem/rust-cache@v1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
       - name: Cache flyway
         id: cache-flyway
-        uses: actions/cache@v2
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ${{ env.FLYWAY_PATH }}
           key: ${{ runner.os }}-flyway-${{ env.FLYWAY_VERSION }}
       - name: Install Flyway
         if: steps.cache-flyway.outputs.cache-hit != 'true'
         run: |
-          mkdir --parents ${{ env.FLYWAY_PATH }}
-          cd ${{ env.FLYWAY_PATH }}
+          mkdir --parents $FLYWAY_PATH
+          cd $FLYWAY_PATH
           curl -L https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}.tar.gz -o out.tar.gz
           tar --strip-components=1 -xzf out.tar.gz
           rm out.tar.gz
           ls -al
       - name: Cache Hardhat
         id: cache-hardhat
-        uses: actions/cache@v2
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ${{ env.HARDHAT_PATH_ }}/node_modules
           key: ${{ runner.os }}-hardhat-${{ env.HARDHAT_VERSION_ }}
       - name: Install Hardhat
         if: steps.cache-hardhat.outputs.cache-hit != 'true'
         run: |
-          mkdir --parents ${{ env.HARDHAT_PATH_ }}
-          cd ${{ env.HARDHAT_PATH_ }}
-          npm install hardhat@${{ env.HARDHAT_VERSION_ }}
+          mkdir --parents $HARDHAT_PATH_
+          cd $HARDHAT_PATH_
+          npm install hardhat@$HARDHAT_VERSION_
           ls -al
       - name: Setup Hardhat
         working-directory: ${{ env.HARDHAT_PATH_ }}
@@ -88,7 +92,7 @@ jobs:
           sudo -u postgres createuser $USER
           sudo -u postgres createdb $USER
           psql -c "ALTER USER $USER PASSWORD '$FLYWAY_PASSWORD';"
-          ${{ env.FLYWAY_PATH }}/flyway -url="jdbc:postgresql:///" -user=$USER -locations="filesystem:database/sql/" migrate
+          $FLYWAY_PATH/flyway -url="jdbc:postgresql:///" -user=$USER -locations="filesystem:database/sql/" migrate
       - run: cargo test --no-run
       - run: cargo test
       # tests requiring a Postgres instance.
